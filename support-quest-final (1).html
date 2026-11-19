@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support Quest: Board Game</title>
+<style>
+  :root { --navy:#0b2a5b; --navy2:#071c3f; --gold:#ffc72c; --pale:#fff3cc; --bg:#eef3fb; --ink:#10203d; --muted:#3c4a63; --ok:#14532d; --bad:#8a1c1c; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Arial,Helvetica,sans-serif; background:var(--bg); color:var(--ink); font-size:19px; line-height:1.45; }
+  header.top { background:var(--navy); color:#fff; padding:14px 20px; border-bottom:8px solid var(--gold); }
+  header.top h1 { margin:0; font-size:2rem; }
+  header.top p { margin:4px 0 0; color:#e6edf9; }
+  main { max-width:1100px; margin:0 auto; padding:18px 16px 60px; }
+  h2 { font-size:1.5rem; color:var(--navy); margin:0 0 8px; }
+  h3 { font-size:1.2rem; color:var(--navy); margin:12px 0 6px; }
+  .panel { background:#fff; border:3px solid var(--navy); border-radius:14px; padding:16px 18px; margin-bottom:16px; }
+  button { font:inherit; font-weight:bold; border-radius:10px; padding:10px 18px; border:3px solid var(--navy2); background:var(--navy); color:#fff; cursor:pointer; margin:4px 6px 4px 0; }
+  button:hover { background:var(--navy2); }
+  button.gold { background:var(--gold); color:var(--navy2); }
+  button.gold:hover { background:#e6b000; }
+  button:disabled { background:#d9dde5; color:#3c4a63; border-color:#5b6577; cursor:not-allowed; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline:4px solid #c2410c; outline-offset:2px; }
+  .row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:6px 0; }
+  .scenario { background:var(--pale); border-left:10px solid var(--gold); padding:10px 14px; border-radius:6px; font-size:1.15rem; }
+  .tag { display:inline-block; background:var(--navy); color:#fff; font-weight:bold; padding:1px 12px; border-radius:999px; font-size:.95rem; }
+  .bar { display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center; background:var(--navy); color:#fff; padding:10px 14px; border-radius:10px; margin-bottom:12px; }
+  .bar b { color:var(--gold); }
+
+  /* Game board */
+  ol.board { list-style:none; display:grid; grid-template-columns:repeat(6,1fr); gap:10px; padding:14px; margin:0 0 14px; background:var(--navy); border:6px solid var(--gold); border-radius:18px; }
+  @media (max-width:800px){ ol.board{ grid-template-columns:repeat(3,1fr); } }
+  ol.board li { position:relative; background:#fff; color:var(--navy2); border:4px solid var(--gold); border-radius:12px; padding:8px 6px 10px; text-align:center; font-weight:bold; font-size:.95rem; min-height:92px; }
+  ol.board li .num { display:block; width:34px; height:34px; line-height:30px; margin:0 auto 4px; border-radius:50%; background:var(--navy); color:var(--gold); border:3px solid var(--navy2); font-size:1.05rem; }
+  ol.board li.done { background:var(--gold); }
+  ol.board li.done .num { background:var(--navy2); }
+  ol.board li.cur { box-shadow:0 0 0 5px #fff, 0 0 0 9px var(--gold); background:var(--pale); }
+  ol.board li .token { display:block; margin-top:4px; background:var(--navy2); color:var(--gold); border-radius:999px; padding:1px 6px; font-size:.85rem; }
+  ol.board li .state { display:block; font-weight:normal; font-size:.85rem; }
+
+  /* Spinner */
+  .wheelwrap { position:relative; width:100%; max-width:380px; margin:6px auto; }
+  .pointer { position:absolute; top:-8px; left:50%; transform:translateX(-50%); width:0; height:0; border-left:16px solid transparent; border-right:16px solid transparent; border-top:32px solid #c2410c; z-index:2; }
+  #wheel { width:100%; height:auto; display:block; transition:transform 4.2s cubic-bezier(.15,.7,.1,1); }
+  @media (prefers-reduced-motion: reduce){ #wheel{ transition:none; } }
+
+  fieldset { border:2px solid var(--navy); border-radius:10px; margin:10px 0; padding:8px 14px 12px; }
+  legend { font-weight:bold; color:var(--navy); padding:0 6px; }
+  .opt { display:flex; gap:10px; align-items:flex-start; padding:8px 10px; border:2px solid #9fb0cc; border-radius:8px; margin:6px 0; background:#fff; }
+  .opt input { width:22px; height:22px; margin-top:3px; flex:none; }
+  .opt label { flex:1; cursor:pointer; }
+  .opt.good { background:#e3f3e8; border-color:var(--ok); }
+  .opt.poor { background:#fbe9e9; border-color:var(--bad); }
+  .opt.wrong { background:#f3f3f3; color:#3c4a63; text-decoration:line-through; }
+  .why { font-size:.98rem; margin:4px 0 0; }
+  .fb { padding:10px 14px; border-radius:8px; margin:10px 0; font-weight:bold; }
+  .fb.good { background:#e3f3e8; border:2px solid var(--ok); color:#0e3a20; }
+  .fb.bad { background:#fbe9e9; border:2px solid var(--bad); color:#5e1212; }
+  .fb.info { background:var(--pale); border:2px solid #b8860b; color:var(--navy2); }
+  textarea { width:100%; min-height:80px; font:inherit; padding:8px; border:2px solid var(--navy); border-radius:8px; }
+  input[type=text], select { font:inherit; padding:6px 8px; border:2px solid var(--navy); border-radius:8px; }
+  .meta { font-size:.95rem; color:var(--muted); }
+  table { width:100%; border-collapse:collapse; font-size:1.2rem; }
+  caption { text-align:left; font-weight:bold; color:var(--navy); padding:6px 0; font-size:1.2rem; }
+  th, td { border:2px solid var(--navy); padding:8px 10px; text-align:left; }
+  thead th { background:var(--navy); color:#fff; }
+
+  /* Team summary */
+  .summary { border:5px solid var(--navy); background:#fff; border-radius:14px; padding:14px 20px 18px; margin-top:16px; }
+  .summary .banner { background:var(--navy); color:var(--gold); border-radius:8px; padding:10px 14px; font-size:1.4rem; font-weight:bold; }
+  .summary h2 { font-size:1.6rem; margin-top:0; }
+  .summary h3 { border-bottom:4px solid var(--gold); padding-bottom:2px; }
+  .summary ul, .summary ol { margin:6px 0; padding-left:1.3em; }
+  .summary li { margin:4px 0; }
+  .summary .note { font-size:.95rem; color:var(--muted); }
+
+  /* Get ready to present */
+  .present { border:5px dashed var(--navy); background:var(--pale); border-radius:14px; padding:14px 20px 18px; margin-top:16px; }
+  .present h2 { font-size:1.6rem; margin-top:0; }
+  .present ol.pl { padding-left:0; list-style:none; margin:8px 0; }
+  .present ol.pl li { background:#fff; border:3px solid var(--navy); border-radius:10px; padding:8px 12px; margin:8px 0; display:flex; gap:10px; align-items:flex-start; }
+  .present ol.pl li input[type=checkbox] { width:24px; height:24px; margin-top:3px; flex:none; }
+  .present ol.pl li .body { flex:1; }
+  .present ol.pl li label { cursor:pointer; display:block; }
+  .present ol.pl li .who { margin-top:6px; display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .present ol.pl li .who label { cursor:default; font-weight:bold; color:var(--navy); }
+  .present ol.pl li .who input[type=text] { flex:1; min-width:200px; }
+  .fix { background:#e3f3e8; border-left:6px solid var(--ok); padding:4px 10px; margin-top:4px; border-radius:4px; }
+  .fix .was { font-size:.95rem; color:var(--muted); display:block; margin-top:2px; }
+  .present ol.pl li.ticked { background:#e3f3e8; border-color:var(--ok); }
+  .talk { background:var(--navy); color:#fff; border-radius:10px; padding:12px 16px; margin-top:12px; font-size:1.25rem; }
+  .talk h3 { color:var(--gold); margin:0 0 6px; font-size:1.3rem; }
+  .talk ul { margin:6px 0 0; padding-left:1.3em; }
+  #live { position:absolute; left:-9999px; }
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Support Quest: The Board Game</h1>
+  <p>Each team plays its own scenario on its own computer. Spin, move along the board, then get ready to present.</p>
+</header>
+<main>
+  <div id="live" role="status" aria-live="polite"></div>
+
+  <!-- HOME / TEAM SETUP -->
+  <section class="panel" id="home" aria-labelledby="h-home">
+    <h2 id="h-home">Set up your team</h2>
+    <div class="row">
+      <label for="teamName"><strong>Team name:</strong></label>
+      <input type="text" id="teamName" maxlength="30" size="26" autocomplete="off">
+    </div>
+    <div class="row">
+      <label for="grp"><strong>Group number:</strong></label>
+      <select id="grp">
+        <option value="1">Group 1</option><option value="2">Group 2</option><option value="3">Group 3</option>
+        <option value="4">Group 4</option><option value="5">Group 5</option><option value="6">Group 6</option>
+      </select>
+      <button type="button" class="gold" id="goGroup">Start my team's quest</button>
+    </div>
+    <p class="meta">Ask your teacher which group number you are. Each number gets a different scenario, so no two teams have the same one.</p>
+  </section>
+
+  <!-- GAME -->
+  <div id="game" hidden>
+    <div class="bar" role="group" aria-label="Your progress">
+      <span id="gTitle"></span>
+      <span>Points: <b id="pts">0</b> / <span id="maxpts"></span></span>
+      <span>Time: <b id="clock">0:00</b></span>
+    </div>
+
+    <ol class="board" id="board" aria-label="Game board"></ol>
+
+    <div class="panel" id="scPanel" hidden>
+      <p><span class="tag" id="gTag"></span> <strong id="gSc"></strong></p>
+      <p class="scenario" id="gText"></p>
+    </div>
+    <section class="panel" id="stage" aria-live="polite"></section>
+  </div>
+</main>
+
+<script>
+const scenarios = [
+ { tag:"Workplace", title:"Back to Work", text:"A new mother is returning to work in two weeks. She works an 8-hour shift with limited breaks and isn't sure how she will continue breastfeeding.",
+   barrier:{ right:"Limited breaks and no clear plan for pumping or feeding during an 8-hour shift", wrong:["She no longer wants to breastfeed","Her baby is too young to be fed breast milk while she is at work","Breast milk cannot be stored at all"] },
+   sols:[
+     {t:"Talk to her employer before she returns about break times and a private, clean place to pump", good:true, why:"Planning ahead with the employer addresses the exact problem: breaks and space."},
+     {t:"Practice pumping and storing milk before her first day back", good:true, why:"Practice builds confidence and makes the first week easier."},
+     {t:"Work out a pumping schedule with her supervisor that matches how often her baby feeds", good:true, why:"A schedule makes the plan predictable for her and her workplace."},
+     {t:"Stop breastfeeding the day she returns", good:false, why:"She wants support to continue, so this skips the goal."},
+     {t:"Skip breaks so she doesn't have to ask for anything", good:false, why:"Skipping breaks does not solve the problem."},
+     {t:"Wait to see what happens on the first day, with no plan", good:false, why:"With no plan, the same barrier will still be there."}],
+   best:{ "Employer":"Can arrange break times and a private space.", "Lactation consultant":"Can help with a pumping and feeding plan for work.", "Healthcare provider":"Can answer questions about feeding and milk storage." } },
+ { tag:"Education", title:"The College Student", text:"A 20-year-old student has a 3-month-old baby and attends college four days a week. She wants to continue breastfeeding but struggles to coordinate classes, childcare, and feeding.",
+   barrier:{ right:"Her class schedule, childcare, and feeding times are hard to coordinate", wrong:["She is too young to breastfeed","Her baby is too old to breastfeed at 3 months","She doesn't want to continue breastfeeding"] },
+   sols:[
+     {t:"Ask the college about a private space to pump between classes", good:true, why:"A private space makes pumping between classes possible."},
+     {t:"Talk to her instructors early about her situation and plan for breaks", good:true, why:"Instructors can help only if they know her needs ahead of time."},
+     {t:"Line up childcare near campus and share her feeding schedule with the caregiver", good:true, why:"Childcare that follows her feeding plan connects school and baby."},
+     {t:"Drop out of school", good:false, why:"This gives up her education when smaller changes could help."},
+     {t:"Stop breastfeeding because school is more important", good:false, why:"She wants to continue, and the question is how to support her."},
+     {t:"Skip classes whenever baby needs to feed", good:false, why:"This isn't sustainable and puts her classes at risk."}],
+   best:{ "College":"Can provide a private space and information on student parent support.", "Community resources":"Can offer childcare options and parent groups.", "Lactation consultant":"Can help plan feeding and pumping around a class schedule." } },
+ { tag:"Family", title:"The Support Gap", text:"A new mother wants to breastfeed, but her family keeps suggesting formula because they think the baby isn't getting enough milk. She is beginning to doubt herself.",
+   barrier:{ right:"Her family doubts her milk supply, which is hurting her confidence", wrong:["Her baby is definitely not getting enough milk","She cannot get formula","Breastfeeding is too painful for everyone"] },
+   sols:[
+     {t:"Take the baby to a checkup so a provider can check weight and feeding", good:true, why:"Facts from a professional can calm doubts for her and her family."},
+     {t:"Ask a provider or lactation consultant to explain to her family how to tell a baby is getting enough", good:true, why:"Shared information can turn doubt into support."},
+     {t:"Connect with a lactation consultant or breastfeeding support group for encouragement", good:true, why:"Support from people who understand rebuilds her confidence."},
+     {t:"Stop talking to her family", good:false, why:"Family support matters, so the goal is to improve it."},
+     {t:"Give formula to keep the peace without checking with anyone", good:false, why:"This skips finding out whether baby is actually getting enough."},
+     {t:"Ignore the baby's hunger cues", good:false, why:"Paying attention to baby's cues is part of feeding well."}],
+   best:{ "Healthcare provider":"Can check baby's weight and growth with facts.", "Lactation consultant":"Can assess feeding and boost her confidence.", "Family":"With good information, they can become her support." } },
+ { tag:"Community", title:"Breastfeeding in Public", text:"A mother feels uncomfortable breastfeeding outside her home. She avoids outings because she worries about feeding her baby in public.",
+   barrier:{ right:"Worry and discomfort about feeding in public are keeping her at home", wrong:["She doesn't know how to breastfeed","She has no time for outings","Her baby only feeds at night"] },
+   sols:[
+     {t:"Practice feeding with a trusted friend or family member nearby first", good:true, why:"Practicing in a safe setting builds comfort."},
+     {t:"Start with short outings to welcoming, family-friendly places", good:true, why:"Small steps make outings feel more manageable."},
+     {t:"Use clothing or a cover that feels comfortable to her, if she wants one", good:true, why:"Her comfort matters, and the choice is hers."},
+     {t:"Stay home until the baby is weaned", good:false, why:"This isolates her and doesn't solve the worry."},
+     {t:"Delay feeding until she gets home, even when baby is hungry", good:false, why:"Baby's hunger should not wait."},
+     {t:"Wait for strangers to give approval before feeding", good:false, why:"Waiting for approval gives other people control over her feeding."}],
+   best:{ "Community resources":"Breastfeeding groups and welcoming spaces offer peer support.", "Family":"A trusted person can go on outings with her.", "Lactation consultant":"Can offer tips and reassurance for feeding away from home." } },
+ { tag:"Nutrition", title:"The Nutrition Question", text:"A breastfeeding mother is concerned that her diet isn't healthy enough to produce good-quality milk. She has a limited grocery budget and often skips meals.",
+   barrier:{ right:"A limited budget and skipped meals make her worry about her diet", wrong:["She has too much milk","Her baby refuses to eat","She doesn't know any recipes"] },
+   sols:[
+     {t:"Ask about WIC for food support and nutrition counseling", good:true, why:"WIC is designed to support families with food and nutrition help."},
+     {t:"Keep easy, low-cost snacks nearby so she doesn't skip meals", good:true, why:"Easy snacks make regular eating realistic when she is busy."},
+     {t:"Ask her healthcare provider or a dietitian what she really needs", good:true, why:"Accurate advice replaces worry with a plan."},
+     {t:"Skip more meals to save money", good:false, why:"Skipping meals makes the problem worse."},
+     {t:"Follow a strict fad diet", good:false, why:"A fad diet is expensive and not a realistic fix."},
+     {t:"Stop breastfeeding because of her diet", good:false, why:"This gives up the goal instead of solving the worry."}],
+   best:{ "WIC":"Offers food support and nutrition counseling.", "Healthcare provider":"Can give personal nutrition advice.", "Community resources":"Local food programs can help stretch a budget." } },
+ { tag:"Wellness", title:"The Exhausted Parent", text:"A mother is breastfeeding a newborn and feels overwhelmed by frequent feedings, lack of sleep, and the pressure to do everything herself.",
+   barrier:{ right:"Frequent feedings, little sleep, and trying to do everything alone", wrong:["She has no breast milk","Her baby is feeding too rarely","She has too much help at home"] },
+   sols:[
+     {t:"Ask a partner, family member, or friend to take over chores, meals, or diaper changes", good:true, why:"Sharing the load gives her time to rest."},
+     {t:"Rest when the baby sleeps and lower expectations at home", good:true, why:"Rest and fewer demands protect her health."},
+     {t:"Talk with her healthcare provider about how she is feeling and what support is available", good:true, why:"A provider can check on her wellbeing and connect her to help."},
+     {t:"Do everything herself to prove she can", good:false, why:"Doing it all alone leads to burnout."},
+     {t:"Push through without rest or help", good:false, why:"This is not sustainable."},
+     {t:"Keep quiet about how overwhelmed she feels", good:false, why:"Others can only help if they know."}],
+   best:{ "Family":"Can share household tasks and give her rest.", "Healthcare provider":"Can check on her health and wellbeing.", "Lactation consultant":"Can help make feeding more efficient and comfortable." } }
+];
+const allResources = ["Healthcare provider","Lactation consultant","WIC","Employer","Family","College","Community resources"];
+const strategies = [
+  {t:"Schedule regular check-ins with a support person or provider", good:true},
+  {t:"Put the plan in writing so everyone knows their role", good:true},
+  {t:"Join a breastfeeding support group, in person or online", good:true},
+  {t:"Review and adjust the plan when her situation changes", good:true},
+  {t:"Try it once and drop the plan if it is hard", good:false},
+  {t:"Wait until a big problem happens before asking for help", good:false}
+];
+const tiles = ["Spin","Barrier","Solutions","Resources","Sustainable","Present"];
+const MAXPTS = 20 + 35 + 30 + 30;
+
+const $ = id => document.getElementById(id);
+const live = m => { const s=$("live"); s.textContent=""; setTimeout(()=>s.textContent=m,50); };
+const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const fmt = t => Math.floor(t/60)+":"+String(t%60).padStart(2,"0");
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function el(tag, cls, html){ const e=document.createElement(tag); if(cls) e.className=cls; if(html!==undefined) e.innerHTML=html; return e; }
+
+let G = null, clockTimer = null, rot = 0, spinning = false;
+function show(which){ ["home","game"].forEach(id=>$(id).hidden = (id!==which)); }
+$("goGroup").onclick = () => startGroup(parseInt($("grp").value), $("teamName").value.trim());
+
+function startGroup(n, name){
+  const team = name || ("Group " + n);
+  G = { n, team, sc:n-1, stage:-1, pts:[0,0,0,0], done:0, start:null, elapsed:0,
+        s1:{tries:0, opts:null, wrong:[]}, s2:{opts:null}, s4:{opts:null},
+        picks:{ barrier:"", solutions:[], ownIdea:"", resources:[], strategies:[], plan:"" } };
+  const s = scenarios[G.sc];
+  G.s1.opts = shuffle([{t:s.barrier.right, good:true}].concat(s.barrier.wrong.map(t=>({t,good:false}))));
+  G.s2.opts = shuffle(s.sols);
+  G.s4.opts = shuffle(strategies);
+  $("gTitle").textContent = team + " (Group " + n + ")";
+  $("maxpts").textContent = MAXPTS; $("pts").textContent = 0; $("clock").textContent = "0:00";
+  $("scPanel").hidden = true;
+  show("game"); renderAll();
+  clearInterval(clockTimer); clockTimer = null;
+  live("Welcome, " + team + ". Spin the wheel to find your scenario.");
+}
+function total(){ return G.pts.reduce((a,b)=>a+b,0); }
+
+function position(){ return G.stage<0 ? 0 : G.stage>=4 ? 5 : G.stage+1; }
+function renderBoard(){
+  const ol=$("board"); ol.innerHTML=""; const p=position();
+  tiles.forEach((t,i)=>{
+    const li=document.createElement("li");
+    const isDone = i<p;
+    if(isDone) li.className="done"; if(i===p){ li.classList.add("cur"); li.setAttribute("aria-current","step"); }
+    li.innerHTML = `<span class="num" aria-hidden="true">${i===0?"S":i===5?"&#9733;":i}</span>${t}<span class="state">${isDone?"Done":i===p?"You are here":"Ahead"}</span>`+(i===p?`<span class="token">&#9733; ${esc(G.team.slice(0,14))}</span>`:"");
+    ol.appendChild(li);
+  });
+}
+function renderAll(){ $("pts").textContent = total(); renderBoard(); renderStage(); }
+function advance(){ G.stage++; renderAll(); focusHeading(); }
+function focusHeading(){ const h=$("stage").querySelector("h2"); if(h){ h.setAttribute("tabindex","-1"); h.focus(); } }
+function renderStage(){
+  const box=$("stage"); box.innerHTML="";
+  if(G.stage===-1) return stageSpin(box);
+  if(G.stage===0) return stage1(box);
+  if(G.stage===1) return stage2(box);
+  if(G.stage===2) return stage3(box);
+  if(G.stage===3) return stage4(box);
+  return finish(box);
+}
+
+/* SPINNER */
+function polar(a, r){ const t=a*Math.PI/180; return [r*Math.sin(t), -r*Math.cos(t)]; }
+function wheelSVG(){
+  let h="";
+  scenarios.forEach((s,i)=>{
+    const a0=i*60, a1=a0+60, p0=polar(a0,200), p1=polar(a1,200);
+    const navy = i%2===0;
+    h += `<path d="M0 0 L${p0[0]} ${p0[1]} A200 200 0 0 1 ${p1[0]} ${p1[1]} Z" fill="${navy?'#0b2a5b':'#ffc72c'}" stroke="#fff" stroke-width="3"/>`;
+    h += `<text transform="rotate(${a0+30}) translate(0,-105)" text-anchor="middle" fill="${navy?'#ffc72c':'#071c3f'}" font-size="22" font-weight="bold" font-family="Arial">${s.tag}</text>`;
+  });
+  h += `<circle r="24" fill="#fff" stroke="#071c3f" stroke-width="4"/>`;
+  return `<svg id="wheel" viewBox="-210 -210 420 420" role="img" aria-label="Spinner wheel with six scenario categories: Workplace, Education, Family, Community, Nutrition, Wellness">${h}</svg>`;
+}
+function stageSpin(box){
+  box.appendChild(el("h2",null,"Start: Spin for your scenario"));
+  box.appendChild(el("p",null,`${esc(G.team)}, press Spin to find out whose story your team will help.`));
+  const w=el("div","wheelwrap"); w.innerHTML = '<div class="pointer" aria-hidden="true"></div>' + wheelSVG(); box.appendChild(w);
+  const row=el("div","row"); row.style.justifyContent="center";
+  const sp=el("button","gold","Spin"); sp.type="button";
+  const go=el("button",null,"Begin stage 1: Identify the barrier"); go.type="button"; go.hidden=true;
+  go.onclick=()=>{ G.start=Date.now(); clearInterval(clockTimer); clockTimer=setInterval(()=>{ if(G && G.done<4){ G.elapsed=Math.floor((Date.now()-G.start)/1000); $("clock").textContent=fmt(G.elapsed); } },1000); advance(); live("Stage 1: identify the barrier."); };
+  const result=el("div");
+  sp.onclick=()=>{
+    if(spinning) return; spinning=true; sp.disabled=true;
+    const center=G.sc*60+30; const base=Math.ceil(rot/360)*360; rot=base+360*5+(360-center);
+    $("wheel").style.transform=`rotate(${rot}deg)`;
+    setTimeout(()=>{
+      spinning=false; const s=scenarios[G.sc];
+      $("gTag").textContent=s.tag; $("gSc").textContent="Scenario "+(G.sc+1)+": "+s.title; $("gText").textContent=s.text; $("scPanel").hidden=false;
+      result.innerHTML=`<p class="fb good">Your scenario: ${esc(s.title)} (${esc(s.tag)}). Read the scenario card above as a team.</p>`;
+      go.hidden=false; go.focus(); live("Your scenario is "+s.title+". "+s.text);
+    }, reduced?50:4400);
+  };
+  row.appendChild(sp); row.appendChild(go); box.appendChild(row); box.appendChild(result);
+}
+
+/* STAGE 1 */
+function stage1(box){
+  box.appendChild(el("h2",null,"Stage 1: Identify the barrier"));
+  box.appendChild(el("p",null,"What is making breastfeeding difficult in this situation? Choose the best answer. Points: 20 on the first try, 10 on the second, 5 after that."));
+  const fs=el("fieldset"); fs.appendChild(el("legend",null,"Choose one barrier"));
+  G.s1.opts.forEach((o,i)=>{
+    const wrap=el("div","opt"+(G.s1.wrong.includes(i)?" wrong":""));
+    const inp=document.createElement("input"); inp.type="radio"; inp.name="s1"; inp.id="s1_"+i; inp.value=i; inp.disabled=G.s1.wrong.includes(i)||G.pts[0]>0;
+    const lab=el("label",null,esc(o.t)); lab.htmlFor=inp.id;
+    wrap.appendChild(inp); wrap.appendChild(lab); fs.appendChild(wrap);
+  });
+  box.appendChild(fs);
+  const fb=el("div"); box.appendChild(fb);
+  const b=el("button","gold","Check my answer"); b.type="button";
+  const nxt=el("button",null,"Move to stage 2"); nxt.type="button"; nxt.hidden=true; nxt.onclick=advance;
+  b.onclick=()=>{
+    const sel=document.querySelector('input[name="s1"]:checked');
+    if(!sel){ fb.innerHTML='<p class="fb info">Pick an answer first.</p>'; return; }
+    const i=parseInt(sel.value); G.s1.tries++;
+    if(G.s1.opts[i].good){
+      G.pts[0]=G.s1.tries===1?20:G.s1.tries===2?10:5; G.done=1; $("pts").textContent=total();
+      G.picks.barrier = G.s1.opts[i].t;
+      fb.innerHTML=`<p class="fb good">Correct! +${G.pts[0]} points.</p>`; live("Correct. Plus "+G.pts[0]+" points.");
+      b.disabled=true; nxt.hidden=false; document.querySelectorAll('input[name="s1"]').forEach(x=>x.disabled=true);
+    } else {
+      G.s1.wrong.push(i); fb.innerHTML='<p class="fb bad">Not quite. Reread the scenario and try again.</p>'; live("Not quite. Try again.");
+      sel.closest(".opt").classList.add("wrong"); sel.disabled=true; sel.checked=false;
+    }
+  };
+  box.appendChild(b); box.appendChild(nxt);
+}
+
+/* STAGE 2 */
+function stage2(box){
+  box.appendChild(el("h2",null,"Stage 2: Create solutions"));
+  box.appendChild(el("p",null,"Choose exactly three ideas you think are the most realistic ways to support this mother. You get one check. Each realistic pick is worth 10 points. Add your own idea for a 5 point bonus."));
+  const fs=el("fieldset"); fs.appendChild(el("legend",null,"Choose three"));
+  G.s2.opts.forEach((o,i)=>{
+    const wrap=el("div","opt"); wrap.id="s2w"+i;
+    const inp=document.createElement("input"); inp.type="checkbox"; inp.id="s2_"+i; inp.value=i;
+    const lab=el("label",null,esc(o.t)); lab.htmlFor=inp.id;
+    wrap.appendChild(inp); wrap.appendChild(lab); fs.appendChild(wrap);
+  });
+  box.appendChild(fs);
+  box.appendChild(el("h3",null,"Bonus: your own idea"));
+  const lb=el("label",null,"Write one more realistic way to support her (at least 15 characters)"); lb.htmlFor="s2own"; box.appendChild(lb);
+  const ta=document.createElement("textarea"); ta.id="s2own"; box.appendChild(ta);
+  const fb=el("div"); box.appendChild(fb);
+  const b=el("button","gold","Check my choices"); b.type="button";
+  const nxt=el("button",null,"Move to stage 3"); nxt.type="button"; nxt.hidden=true; nxt.onclick=advance;
+  b.onclick=()=>{
+    const sel=Array.from(document.querySelectorAll('#stage input[type=checkbox]:checked')).map(x=>parseInt(x.value));
+    if(sel.length!==3){ fb.innerHTML='<p class="fb info">Choose exactly three ideas.</p>'; return; }
+    let p=0; sel.forEach(i=>{ if(G.s2.opts[i].good) p+=10; });
+    const ownText=ta.value.trim(); const own=ownText.length>=15; if(own) p+=5;
+    G.picks.solutions = sel.map(i=>({t:G.s2.opts[i].t, good:G.s2.opts[i].good}));
+    G.picks.ownIdea = ownText;
+    G.pts[1]=p; G.done=2; $("pts").textContent=total();
+    G.s2.opts.forEach((o,i)=>{ const w=$("s2w"+i); const chosen=sel.includes(i); if(chosen) w.classList.add(o.good?"good":"poor");
+      w.appendChild(el("p","why",(chosen?"You picked this. ":"")+(o.good?"Realistic: ":"Less realistic: ")+esc(o.why))); });
+    document.querySelectorAll('#stage input[type=checkbox]').forEach(x=>x.disabled=true); ta.disabled=true;
+    fb.innerHTML=`<p class="fb good">+${p} points${own?" (includes your 5 point bonus)":""}.</p>`; live("Stage 2 complete. Plus "+p+" points.");
+    b.disabled=true; nxt.hidden=false;
+  };
+  box.appendChild(b); box.appendChild(nxt);
+}
+
+/* STAGE 3 */
+function stage3(box){
+  const s=scenarios[G.sc];
+  box.appendChild(el("h2",null,"Stage 3: Find resources"));
+  box.appendChild(el("p",null,"Who or what could help most in this situation? Choose up to three. Each best fit is worth 10 points."));
+  const fs=el("fieldset"); fs.appendChild(el("legend",null,"Choose up to three resources"));
+  allResources.forEach((r,i)=>{
+    const wrap=el("div","opt"); wrap.id="s3w"+i;
+    const inp=document.createElement("input"); inp.type="checkbox"; inp.id="s3_"+i; inp.value=r;
+    const lab=el("label",null,esc(r)); lab.htmlFor=inp.id;
+    wrap.appendChild(inp); wrap.appendChild(lab); fs.appendChild(wrap);
+  });
+  box.appendChild(fs);
+  const fb=el("div"); box.appendChild(fb);
+  const b=el("button","gold","Check my resources"); b.type="button";
+  const nxt=el("button",null,"Move to stage 4"); nxt.type="button"; nxt.hidden=true; nxt.onclick=advance;
+  b.onclick=()=>{
+    const sel=Array.from(document.querySelectorAll('#stage input[type=checkbox]:checked')).map(x=>x.value);
+    if(sel.length<1||sel.length>3){ fb.innerHTML='<p class="fb info">Choose between one and three resources.</p>'; return; }
+    let p=0; sel.forEach(r=>{ if(s.best[r]) p+=10; });
+    G.picks.resources = sel.map(r=>({t:r, how:s.best[r]||""}));
+    G.pts[2]=p; G.done=3; $("pts").textContent=total();
+    allResources.forEach((r,i)=>{ const w=$("s3w"+i); const chosen=sel.includes(r);
+      if(s.best[r]){ w.classList.add("good"); w.appendChild(el("p","why",(chosen?"You picked this. ":"")+"Best fit: "+esc(s.best[r]))); }
+      else if(chosen){ w.classList.add("poor"); w.appendChild(el("p","why","You picked this. It could help in some situations, but it is a less direct fit here.")); } });
+    document.querySelectorAll('#stage input[type=checkbox]').forEach(x=>x.disabled=true);
+    fb.innerHTML=`<p class="fb good">+${p} points.</p>`; live("Stage 3 complete. Plus "+p+" points.");
+    b.disabled=true; nxt.hidden=false;
+  };
+  box.appendChild(b); box.appendChild(nxt);
+}
+
+/* STAGE 4 */
+function stage4(box){
+  box.appendChild(el("h2",null,"Stage 4: Make it sustainable"));
+  box.appendChild(el("p",null,"What could make this support continue beyond the first few days? Choose exactly two strategies (10 points for each realistic pick), then write your plan (10 points for at least 20 characters)."));
+  const fs=el("fieldset"); fs.appendChild(el("legend",null,"Choose two strategies"));
+  G.s4.opts.forEach((o,i)=>{
+    const wrap=el("div","opt"); wrap.id="s4w"+i;
+    const inp=document.createElement("input"); inp.type="checkbox"; inp.id="s4_"+i; inp.value=i;
+    const lab=el("label",null,esc(o.t)); lab.htmlFor=inp.id;
+    wrap.appendChild(inp); wrap.appendChild(lab); fs.appendChild(wrap);
+  });
+  box.appendChild(fs);
+  const lb=el("label",null,"In your own words: how will this mother keep getting support over the next few weeks?"); lb.htmlFor="s4own"; box.appendChild(lb);
+  const ta=document.createElement("textarea"); ta.id="s4own"; box.appendChild(ta);
+  const fb=el("div"); box.appendChild(fb);
+  const b=el("button","gold","Check and cross the finish line"); b.type="button";
+  b.onclick=()=>{
+    const sel=Array.from(document.querySelectorAll('#stage input[type=checkbox]:checked')).map(x=>parseInt(x.value));
+    if(sel.length!==2){ fb.innerHTML='<p class="fb info">Choose exactly two strategies.</p>'; return; }
+    let p=0; sel.forEach(i=>{ if(G.s4.opts[i].good) p+=10; });
+    const planText=ta.value.trim();
+    if(planText.length>=20) p+=10;
+    G.picks.strategies = sel.map(i=>({t:G.s4.opts[i].t, good:G.s4.opts[i].good}));
+    G.picks.plan = planText;
+    G.pts[3]=p; G.done=4; G.elapsed=Math.floor((Date.now()-G.start)/1000); $("clock").textContent=fmt(G.elapsed); $("pts").textContent=total();
+    G.s4.opts.forEach((o,i)=>{ const w=$("s4w"+i); const chosen=sel.includes(i); if(chosen) w.classList.add(o.good?"good":"poor");
+      w.appendChild(el("p","why",(chosen?"You picked this. ":"")+(o.good?"Helps support last.":"Support is unlikely to last this way."))); });
+    document.querySelectorAll('#stage input[type=checkbox]').forEach(x=>x.disabled=true); ta.disabled=true;
+    fb.innerHTML=`<p class="fb good">+${p} points.</p>`; b.disabled=true;
+    const nxt=el("button","gold","Finish and get ready to present"); nxt.type="button"; nxt.onclick=()=>{ G.stage=4; renderAll(); focusHeading(); }; box.appendChild(nxt);
+    live("Quest complete. Plus "+p+" points.");
+  };
+  box.appendChild(b);
+}
+
+/* FINISH: SUMMARY + GET READY TO PRESENT */
+function finish(box){
+  const s=scenarios[G.sc], P=G.picks;
+  box.appendChild(el("h2",null,"Quest complete!"));
+  box.appendChild(el("p",null,`${esc(G.team)}, you finished with <strong>${total()} of ${MAXPTS} points</strong> in <strong>${fmt(G.elapsed)}</strong>.`));
+  const t=el("table"); t.innerHTML='<caption>Your points by stage</caption><thead><tr><th scope="col">Stage</th><th scope="col">Points</th></tr></thead><tbody>'+["1. Identify the barrier","2. Create solutions","3. Find resources","4. Make it sustainable"].map((n,i)=>`<tr><th scope="row">${n}</th><td>${G.pts[i]}</td></tr>`).join("")+'</tbody>';
+  box.appendChild(t);
+
+  const sm=el("section","summary"); sm.setAttribute("aria-labelledby","h-sum");
+  let h = `<h2 id="h-sum">Your team summary</h2>
+    <p class="banner">${esc(G.team)}: "${esc(s.title)}" (${esc(s.tag)})</p>
+    <h3>The scenario</h3>
+    <p class="scenario">${esc(s.text)}</p>
+    <h3>The barrier</h3>
+    <p>${esc(P.barrier)}</p>
+    <h3>Our solutions</h3><ol>`;
+  const missedSols = G.s2.opts.filter(o=>o.good && !P.solutions.some(x=>x.t===o.t));
+  P.solutions.forEach(x=>{
+    if(x.good){ h += `<li>${esc(x.t)}</li>`; }
+    else { const m = missedSols.shift(); h += m ? `<li><span class="fix"><strong>More appropriate answer:</strong> ${esc(m.t)}<span class="was">Your team first chose: ${esc(x.t)}. A better choice is shown because: ${esc(m.why)}</span></span></li>` : `<li>${esc(x.t)}</li>`; }
+  });
+  h += `</ol>`;
+  if(P.ownIdea) h += `<p><strong>Our own idea:</strong> ${esc(P.ownIdea)}</p>`;
+  h += `<h3>Who could help</h3><ul>`;
+  const missedRes = Object.keys(s.best).filter(r=>!P.resources.some(x=>x.t===r));
+  P.resources.forEach(r=>{
+    if(r.how){ h += `<li><strong>${esc(r.t)}</strong>: ${esc(r.how)}</li>`; }
+    else { const m = missedRes.shift(); h += m ? `<li><span class="fix"><strong>More appropriate answer: ${esc(m)}</strong>: ${esc(s.best[m])}<span class="was">Your team first chose: ${esc(r.t)}. It could help in some situations, but it is a less direct fit for this scenario.</span></span></li>` : `<li>${esc(r.t)}</li>`; }
+  });
+  h += `</ul><h3>Keeping support going</h3><ul>`;
+  const missedStr = G.s4.opts.filter(o=>o.good && !P.strategies.some(x=>x.t===o.t));
+  P.strategies.forEach(x=>{
+    if(x.good){ h += `<li>${esc(x.t)}</li>`; }
+    else { const m = missedStr.shift(); h += m ? `<li><span class="fix"><strong>More appropriate answer:</strong> ${esc(m.t)}<span class="was">Your team first chose: ${esc(x.t)}. A better choice is shown because it helps support last beyond the first few days.</span></span></li>` : `<li>${esc(x.t)}</li>`; }
+  });
+  h += `</ul>`;
+  if(P.plan) h += `<p><strong>Our plan:</strong> ${esc(P.plan)}</p>`;
+  sm.innerHTML = h; box.appendChild(sm);
+
+  const pr=el("section","present"); pr.setAttribute("aria-labelledby","h-present");
+  pr.innerHTML = `<h2 id="h-present">Get ready to present</h2>
+    <p>Keep this page open. Your teacher will call on your team to present using your team summary above. Use the checklist to get ready.</p>
+    <ol class="pl" id="pl"></ol>
+    <p><strong id="plCount" aria-live="polite"></strong></p>
+    <div class="talk">
+      <h3>Team Talk question</h3>
+      <p>Be ready to answer this question when you present:</p>
+      <ul>
+        <li>What was the hardest barrier to solve?</li>
+        <li>Which resource would you contact first, and why?</li>
+      </ul>
+    </div>`;
+  box.appendChild(pr);
+  const items=[
+    {t:"Read the scenario and describe the barrier.", who:true},
+    {t:"Explain the solutions your team chose.", who:true},
+    {t:"Share who could help and how support can keep going.", who:true},
+    {t:"Answer the Team Talk question.", who:true},
+    {t:"Do a quick practice run so everyone knows their part.", who:false}
+  ];
+  const ol=pr.querySelector("#pl"); const cnt=pr.querySelector("#plCount");
+  cnt.textContent="0 of "+items.length+" ready";
+  items.forEach((it,i)=>{
+    const li=document.createElement("li"); const c=document.createElement("input"); c.type="checkbox"; c.id="pc"+i;
+    const body=el("div","body");
+    const lab=el("label",null,esc(it.t)); lab.htmlFor=c.id; body.appendChild(lab);
+    if(it.who){
+      const w=el("div","who"); const wl=el("label",null,"Team member presenting:"); wl.htmlFor="pn"+i;
+      const wi=document.createElement("input"); wi.type="text"; wi.id="pn"+i; wi.maxLength=40; wi.autocomplete="off"; wi.placeholder="Type a name";
+      w.appendChild(wl); w.appendChild(wi); body.appendChild(w);
+    }
+    c.onchange=()=>{ li.classList.toggle("ticked",c.checked); const n=ol.querySelectorAll("input[type=checkbox]:checked").length; cnt.textContent=n+" of "+items.length+" ready"; };
+    li.appendChild(c); li.appendChild(body); ol.appendChild(li);
+  });
+}
+</script>
+</body>
+</html>
